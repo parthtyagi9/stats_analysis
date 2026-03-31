@@ -192,12 +192,105 @@ cat("Simulated Power:", simulated_power, "\n")
 * **If the effect size is smaller:** The required sample size **increases**. A smaller true difference is harder to detect against random noise, so more data is needed to correctly reject the null hypothesis.
 * **If the variability is larger:** The required sample size **increases**. A higher standard deviation creates more overlap between the two groups, requiring more observations to clearly isolate the treatment effect.
 
-# Part 3
+# Part 3: Comparing More Than Two Treatments
 
+## 3A: One-Way ANOVA
 
-## 3A
+### Study Design Definitions
 
-### Tasks
+* **Research Question:** Is there a statistically significant difference in mean pain scores among the three treatments (A, B, and C)? Formally, we test: $H_0: \mu_A = \mu_B = \mu_C$ vs $H_1:$ at least one mean differs, where $\mu_A$, $\mu_B$, and $\mu_C$ represent the true mean pain scores for treatments A, B, and C, respectively.
+* **Experimental Units:** The individual subjects/patients who receive the treatments.
+* **Response Variable:** Pain score (`pain`), measured on a scale from 0 to 10.
+* **Treatment Factor:** Treatment type (`trt`), with three levels: A, B, and C.
+
+### Exploratory Data Analysis
+
+```{r eda_3a, fig.width=4.5, fig.height=3.5, fig.align='center'}
+# Load the dataset
+data("painstudy", package = "scidesignR")
+
+# Summary statistics by treatment
+summary_pain <- painstudy %>%
+  group_by(trt) %>%
+  summarize(
+    n = n(),
+    Mean = round(mean(pain), 4),
+    SD = round(sd(pain), 4),
+    Min = min(pain),
+    Max = max(pain)
+  )
+knitr::kable(summary_pain, caption = "Summary Statistics of Pain Scores by Treatment")
+
+# Boxplot
+ggplot(painstudy, aes(x = trt, y = pain, fill = trt)) +
+  geom_boxplot(alpha = 0.7) +
+  theme_minimal() +
+  labs(title = "Pain Score Distribution by Treatment",
+       x = "Treatment",
+       y = "Pain Score") +
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5))
+```
+
+The boxplot and summary statistics reveal clear differences in mean pain scores across treatments. Treatment C has the lowest mean pain score (3.64), followed by Treatment A (6.20), while Treatment B has the highest mean (7.32).
+
+### Model Fitting and Assumption Checking
+
+We fit a one-way ANOVA model to compare the mean pain scores across the three treatments.
+
+```{r anova_model_3a, include=FALSE}
+anova_mod <- aov(pain ~ trt, data = painstudy)
+```
+
+```{r qq_3a, fig.width=4.5, fig.height=3.8, fig.align='center', out.width='65%'}
+qqnorm(resid(anova_mod), main = "Q-Q Plot of Residuals"); qqline(resid(anova_mod), col = "red")
+```
+
+```{r resid_3a, fig.width=4.5, fig.height=3.8, fig.align='center', out.width='65%'}
+plot(fitted(anova_mod), resid(anova_mod),
+     main = "Residuals vs Fitted",
+     xlab = "Fitted Values",
+     ylab = "Residuals")
+abline(h = 0, col = "red", lty = 2)
+```
+
+```{r assumption_tests_3a, comment = NA, strip.white = TRUE}
+# Shapiro-Wilk test for normality
+shapiro.test(resid(anova_mod))
+
+# Levene's test for homogeneity of variance
+leveneTest(pain ~ trt, data = painstudy)
+```
+
+**Assumption Check Conclusion:** The Q-Q plot shows points closely following the theoretical line, and the Shapiro-Wilk test yields a non-significant p-value (p = 0.111), supporting the normality assumption. Levene's test produces a marginally non-significant p-value (p = 0.075), indicating that the assumption of equal variances is reasonably satisfied. Therefore, we can proceed with the standard one-way ANOVA.
+
+### ANOVA Results
+
+```{r anova_results_3a, comment = NA, strip.white = TRUE}
+summary(anova_mod)
+```
+
+**Interpretation:** The one-way ANOVA yields an F-statistic of 98.92 with a p-value < 2e-16. Since the p-value is much smaller than $\alpha = 0.05$, we reject the null hypothesis and conclude that there is a statistically significant difference in mean pain scores among at least two of the three treatments.
+
+### Post-Hoc Analysis: Tukey's HSD
+
+Since the ANOVA is significant, we perform Tukey's Honest Significant Difference (HSD) test to determine which specific treatment pairs differ.
+
+```{r tukey_3a, comment = NA, strip.white = TRUE}
+tukey_result <- TukeyHSD(anova_mod)
+tukey_result
+```
+
+```{r tukey_plot_3a, fig.width=5, fig.height=3.5, fig.align='center'}
+plot(tukey_result, las = 1, cex.axis = 0.8)
+```
+
+**Post-Hoc Conclusion:** Tukey's HSD reveals that all pairwise comparisons are statistically significant:
+
+* **B vs A:** Significant difference (p = 0.0001), with the 95% CI [0.48, 1.76] entirely above zero, indicating Treatment B has a significantly higher mean pain score than Treatment A.
+* **C vs A:** Significant difference (p < 0.0001), with the 95% CI [-3.20, -1.92] entirely below zero, indicating Treatment C has a significantly lower mean pain score than Treatment A.
+* **C vs B:** Significant difference (p < 0.0001), with the 95% CI [-4.32, -3.04] entirely below zero, indicating Treatment C has a significantly lower mean pain score than Treatment B.
+
+**Overall Conclusion for 3A:** All three treatments differ significantly in their effect on pain scores. Treatment C produces the lowest pain scores (mean = 3.64), followed by Treatment A (mean = 6.20), with Treatment B resulting in the highest pain scores (mean = 7.32). If the goal is to minimize pain, Treatment C is clearly the most effective option among the three.
 
 ## 3B
 
