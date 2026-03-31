@@ -231,11 +231,11 @@ ggplot(painstudy, aes(x = trt, y = pain, fill = trt)) +
   theme(legend.position = "none", plot.title = element_text(hjust = 0.5))
 ```
 
-The boxplot and summary statistics reveal clear differences in mean pain scores across treatments. Treatment C has the lowest mean pain score (3.64), followed by Treatment A (6.20), while Treatment B has the highest mean (7.32).
+From the boxplot and summary table, we can see noticeable differences between the three treatment groups. Treatment C has the lowest mean pain score at 3.64, Treatment A is in the middle with 6.20, and Treatment B has the highest at 7.32. The spread of the data looks fairly similar across groups.
 
 ### Model Fitting and Assumption Checking
 
-We fit a one-way ANOVA model to compare the mean pain scores across the three treatments.
+We fit a one-way ANOVA model to compare pain scores across the three treatments.
 
 ```{r anova_model_3a, include=FALSE}
 anova_mod <- aov(pain ~ trt, data = painstudy)
@@ -261,7 +261,7 @@ shapiro.test(resid(anova_mod))
 leveneTest(pain ~ trt, data = painstudy)
 ```
 
-**Assumption Check Conclusion:** The Q-Q plot shows points closely following the theoretical line, and the Shapiro-Wilk test yields a non-significant p-value (p = 0.111), supporting the normality assumption. Levene's test produces a marginally non-significant p-value (p = 0.075), indicating that the assumption of equal variances is reasonably satisfied. Therefore, we can proceed with the standard one-way ANOVA.
+**Assumption Check Conclusion:** Looking at the Q-Q plot, the points follow the line reasonably well, and the Shapiro-Wilk test gives a p-value of 0.111, so normality seems fine. For equal variances, Levene's test gives p = 0.075, which is above 0.05, so we can assume the variances are roughly equal. Both assumptions are satisfied, so we can use the standard one-way ANOVA.
 
 ### ANOVA Results
 
@@ -269,11 +269,11 @@ leveneTest(pain ~ trt, data = painstudy)
 summary(anova_mod)
 ```
 
-**Interpretation:** The one-way ANOVA yields an F-statistic of 98.92 with a p-value < 2e-16. Since the p-value is much smaller than $\alpha = 0.05$, we reject the null hypothesis and conclude that there is a statistically significant difference in mean pain scores among at least two of the three treatments.
+**Interpretation:** The ANOVA gives an F-statistic of 98.92 with a p-value that is essentially zero (< 2e-16). This is well below our significance level of 0.05, so we reject the null hypothesis. There is a significant difference in mean pain scores between at least two of the treatments.
 
 ### Post-Hoc Analysis: Tukey's HSD
 
-Since the ANOVA is significant, we perform Tukey's Honest Significant Difference (HSD) test to determine which specific treatment pairs differ.
+Since the ANOVA result is significant, we use Tukey's HSD test to see which specific pairs of treatments differ.
 
 ```{r tukey_3a, comment = NA, strip.white = TRUE}
 tukey_result <- TukeyHSD(anova_mod)
@@ -284,21 +284,125 @@ tukey_result
 plot(tukey_result, las = 1, cex.axis = 0.8)
 ```
 
-**Post-Hoc Conclusion:** Tukey's HSD reveals that all pairwise comparisons are statistically significant:
+**Post-Hoc Conclusion:** The Tukey test shows that all three pairwise comparisons are significant:
 
-* **B vs A:** Significant difference (p = 0.0001), with the 95% CI [0.48, 1.76] entirely above zero, indicating Treatment B has a significantly higher mean pain score than Treatment A.
-* **C vs A:** Significant difference (p < 0.0001), with the 95% CI [-3.20, -1.92] entirely below zero, indicating Treatment C has a significantly lower mean pain score than Treatment A.
-* **C vs B:** Significant difference (p < 0.0001), with the 95% CI [-4.32, -3.04] entirely below zero, indicating Treatment C has a significantly lower mean pain score than Treatment B.
+* **B vs A:** p = 0.0001, with the 95% CI [0.48, 1.76] above zero. Treatment B has higher pain scores than A.
+* **C vs A:** p < 0.0001, with the 95% CI [-3.20, -1.92] below zero. Treatment C has lower pain scores than A.
+* **C vs B:** p < 0.0001, with the 95% CI [-4.32, -3.04] below zero. Treatment C has lower pain scores than B.
 
-**Overall Conclusion for 3A:** All three treatments differ significantly in their effect on pain scores. Treatment C produces the lowest pain scores (mean = 3.64), followed by Treatment A (mean = 6.20), with Treatment B resulting in the highest pain scores (mean = 7.32). If the goal is to minimize pain, Treatment C is clearly the most effective option among the three.
+**Overall Conclusion for 3A:** All three treatments are significantly different from each other. Treatment C is the best for reducing pain (mean = 3.64), Treatment A is in the middle (mean = 6.20), and Treatment B actually has the highest pain scores (mean = 7.32). So if the goal is to minimize pain, Treatment C would be the recommended choice.
 
-## 3B
+## 3B: Randomized Block Design (RBD)
 
-### Tasks
+### Study Design Definitions
 
-## 3C
+* **Research Question:** Is there a significant difference in shoe wear between material A and material B?
+* **Experimental Units:** Each foot (left or right) of a boy.
+* **Response Variable:** Shoe wear (`wearA`, `wearB`), a continuous measurement.
+* **Treatment Factor:** Shoe material, with two levels: A and B.
+* **Block Variable:** `boy` — each boy serves as a block.
 
-### Tasks
+### Why Blocking is Appropriate
+
+Blocking by boy makes sense here because each boy has unique characteristics (weight, activity level, walking style, etc.) that could affect shoe wear. By having each boy wear both materials (one on each foot), we control for individual differences. This is a **within-subject design** where each subject acts as their own control, which typically reduces error variance and increases the power to detect a treatment effect.
+
+### Data Preparation
+
+The original data is in wide format (one row per boy). We need to reshape it to long format for proper ANOVA analysis.
+
+```{r reshape_3b}
+data("shoedat_obs", package = "scidesignR")
+
+# Reshape to long format
+shoe_long <- shoedat_obs %>%
+  pivot_longer(
+    cols = c(wearA, wearB),
+    names_to = "material",
+    values_to = "wear",
+    names_prefix = "wear"
+  ) %>%
+  mutate(
+    boy = factor(boy),
+    material = factor(material)
+  )
+
+knitr::kable(head(shoe_long, 10), caption = "Reshaped Shoe Data (First 10 Rows)")
+```
+
+### Blocked Model: Response ~ Treatment + Block
+
+```{r blocked_model_3b, comment = NA, strip.white = TRUE}
+blocked_mod <- aov(wear ~ material + boy, data = shoe_long)
+summary(blocked_mod)
+```
+
+**Interpretation:** In the blocked model, material has F = 1.74 with p = 0.220, which is not significant at $\alpha = 0.05$. The boy (block) effect has F = 0.43 with p = 0.888, indicating that the boys do not differ much from each other in terms of overall wear.
+
+### Comparison with Unblocked Analysis
+
+To see what blocking changes, we fit a model that ignores the blocking structure.
+
+```{r unblocked_model_3b, comment = NA, strip.white = TRUE}
+unblocked_mod <- aov(wear ~ material, data = shoe_long)
+summary(unblocked_mod)
+```
+
+**Comparison:** In the unblocked model, material has F = 2.43 with p = 0.136, which is still not significant but has a lower p-value than the blocked model. This happens because the blocking factor (boy) does not explain much variation in this dataset — the boys are fairly similar in their overall wear levels. When blocking doesn't capture real between-block differences, it can actually increase the MSE by reducing the degrees of freedom for error without a corresponding reduction in error variance.
+
+### Conclusion for 3B
+
+Both models lead to the same conclusion: there is no statistically significant difference in wear between materials A and B. However, this dataset illustrates an important point — blocking is beneficial when there is substantial between-block variation to account for. In this case, the boys were relatively homogeneous, so blocking did not improve our analysis. In practice, blocking should be used when we expect meaningful differences between blocks (e.g., if the boys had very different activity levels or weights).
+
+## 3C: Latin Square Design
+
+### Study Design Definitions
+
+* **Research Question:** Is there a significant effect of treatment on serum calcium levels in dogs?
+* **Experimental Units:** Each dog-week combination (a single observation of one dog in one week).
+* **Response Variable:** Serum calcium level (`value`), measured in mg-percent.
+* **Treatment Factor:** `Treat`, with four levels: A, B, C, D.
+* **Row Blocking Factor:** `Dogs` — blocks for individual dog differences (e.g., baseline calcium levels, metabolism).
+* **Column Blocking Factor:** `Weeks` — blocks for time effects (e.g., seasonal variation, cumulative effects).
+
+### Why Latin Square?
+
+A Latin Square design is used when we need to control for two sources of nuisance variation simultaneously. Here, both individual dog differences and time (week) effects might influence serum calcium levels. By using a Latin Square, each treatment appears exactly once in each row (dog) and each column (week), so any dog or week effects are balanced out across treatments.
+
+### Model Fitting
+
+```{r latinsq_model_3c, comment = NA, strip.white = TRUE}
+data("BR_LatSq", package = "scidesignR")
+
+# Convert to factors
+BR_LatSq$Dogs <- factor(BR_LatSq$Dogs)
+BR_LatSq$Weeks <- factor(BR_LatSq$Weeks)
+BR_LatSq$Treat <- factor(BR_LatSq$Treat)
+
+# Fit Latin Square model
+lat_sq_mod <- aov(value ~ Dogs + Weeks + Treat, data = BR_LatSq)
+summary(lat_sq_mod)
+```
+
+### Interpretation
+
+From the ANOVA table:
+
+* **Dogs (rows):** F = 1.79, p = 0.248 — not significant. The dogs don't differ much in their overall calcium levels.
+* **Weeks (columns):** F = 0.35, p = 0.794 — not significant. No meaningful time trend across the four weeks.
+* **Treatment:** F = 3.01, p = 0.116 — not significant at $\alpha = 0.05$, but it has the largest F-value among the three factors.
+
+```{r treat_means_3c}
+# Treatment means
+treat_means <- aggregate(value ~ Treat, data = BR_LatSq, FUN = mean)
+knitr::kable(treat_means, col.names = c("Treatment", "Mean Serum Calcium"),
+             caption = "Mean Serum Calcium by Treatment")
+```
+
+Looking at the treatment means, Treatments B and D have higher mean serum calcium (15.55) compared to A (14.75) and C (14.28). However, since the p-value is 0.116, we cannot conclude that these differences are statistically significant.
+
+### Conclusion for 3C
+
+Based on the Latin Square analysis, there is no statistically significant treatment effect on serum calcium levels (p = 0.116). While treatments B and D appear to produce higher calcium levels than A and C, the evidence is not strong enough to reject the null hypothesis at the 0.05 significance level. The blocking factors (dogs and weeks) also did not show significant effects, suggesting that the experimental units were fairly homogeneous across these dimensions.
 
 
 
