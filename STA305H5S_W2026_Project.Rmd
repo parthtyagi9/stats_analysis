@@ -192,20 +192,212 @@ cat("Simulated Power:", simulated_power, "\n")
 * **If the effect size is smaller:** The required sample size **increases**. A smaller true difference is harder to detect against random noise, so more data is needed to correctly reject the null hypothesis.
 * **If the variability is larger:** The required sample size **increases**. A higher standard deviation creates more overlap between the two groups, requiring more observations to clearly isolate the treatment effect.
 
-# Part 3
+# Part 3: More Than Two Treatments
 
+## 3A — One-Way ANOVA
 
-## 3A
+### Study Design
 
-### Tasks
+* **Research Question:** Is there a statistically significant difference in mean pain scores across the treatment groups? Formally: $H_0: \mu_1 = \mu_2 = \mu_3 = \mu_4$ vs $H_1:$ at least one $\mu_i$ differs.
+* **Experimental Units:** Individual patients assigned to each treatment.
+* **Response Variable:** Pain score (`pain`), measured on a scale of 0 to 10.
+* **Treatment Factor:** Treatment group (`trt`), a categorical factor with four levels.
 
-## 3B
+### Exploratory Data Analysis
 
-### Tasks
+```{r part3a_eda, fig.width=5, fig.height=3.5, fig.align='center'}
+data("painstudy", package = "scidesignR")
 
-## 3C
+# Summary statistics by treatment group
+pain_summary <- painstudy %>%
+  group_by(trt) %>%
+  summarize(
+    n = n(),
+    Mean = round(mean(pain, na.rm = TRUE), 4),
+    SD = round(sd(pain, na.rm = TRUE), 4),
+    Min = min(pain, na.rm = TRUE),
+    Max = max(pain, na.rm = TRUE)
+  )
+knitr::kable(pain_summary, caption = "Summary Statistics of Pain Scores by Treatment")
 
-### Tasks
+# Boxplot
+ggplot(painstudy, aes(x = factor(trt), y = pain, fill = factor(trt))) +
+  geom_boxplot(alpha = 0.7) +
+  theme_minimal() +
+  labs(title = "Pain Score Distribution by Treatment Group",
+       x = "Treatment Group",
+       y = "Pain Score") +
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5))
+```
+
+### Checking Assumptions
+
+To use a one-way ANOVA, we need to verify **normality** of the residuals and **homogeneity of variances** across groups.
+
+```{r part3a_assumptions, fig.width=4.5, fig.height=3.8, fig.align='center', out.width='65%'}
+mod_pain <- lm(pain ~ factor(trt), data = painstudy)
+
+# Q-Q plot of residuals
+qqnorm(resid(mod_pain), main = "Q-Q Plot of Residuals (Pain Study)")
+qqline(resid(mod_pain), col = "red")
+```
+
+```{r part3a_resid_plot, fig.width=4.5, fig.height=3.8, fig.align='center'}
+plot(fitted(mod_pain), resid(mod_pain),
+     main = "Residuals vs Fitted (Pain Study)",
+     xlab = "Fitted Values",
+     ylab = "Residuals")
+abline(h = 0, col = "red", lty = 2)
+```
+
+```{r part3a_formal_tests, comment = NA, strip.white = TRUE}
+# Shapiro-Wilk test for normality of residuals
+shapiro.test(resid(mod_pain))
+
+# Levene's test for homogeneity of variances
+leveneTest(pain ~ factor(trt), data = painstudy)
+```
+
+**Assumption Check Conclusion:** If the Shapiro-Wilk test yields a non-significant p-value and the Q-Q plot shows points closely following the theoretical line, then normality is reasonable. If Levene's test is non-significant, the equal variance assumption holds, and we may proceed with a standard one-way ANOVA. If either assumption is violated, we note it and consider robust alternatives (e.g., Welch's ANOVA).
+
+### One-Way ANOVA
+
+```{r part3a_anova, comment = NA, strip.white = TRUE}
+aov_pain <- aov(pain ~ factor(trt), data = painstudy)
+summary(aov_pain)
+```
+
+**Interpretation:** The ANOVA F-test evaluates whether the mean pain scores differ significantly across the treatment groups. If the p-value is below 0.05, we reject the null hypothesis and conclude that at least one treatment group has a significantly different mean pain score. Otherwise, we fail to reject $H_0$.
+
+### Post-Hoc Comparisons
+
+If the ANOVA result is significant, we perform Tukey's Honest Significant Difference (HSD) test to identify which specific pairs of treatments differ.
+
+```{r part3a_tukey, comment = NA, strip.white = TRUE}
+tukey_result <- TukeyHSD(aov_pain)
+tukey_result
+```
+
+```{r part3a_tukey_plot, fig.width=5.5, fig.height=4, fig.align='center'}
+plot(tukey_result, las = 1, cex.axis = 0.7)
+```
+
+**Post-Hoc Interpretation:** Each pairwise comparison includes a 95% confidence interval for the difference in means and an adjusted p-value. Pairs whose confidence intervals do not contain zero indicate a statistically significant difference. The Tukey plot visually displays these intervals, with any interval not crossing zero highlighting a significant pairwise contrast.
+
+\newpage
+
+## 3B — Randomized Block Design (RBD)
+
+### Study Design
+
+* **Research Question:** Is there a significant difference in wear between shoe materials A and B, after controlling for boy-to-boy variability?
+* **Experimental Units:** Each foot (left or right) of a boy.
+* **Response Variable:** Wear of the shoe material (measured as `wearA` and `wearB`).
+* **Treatment Factor:** Shoe material (A vs B).
+* **Block Variable:** Boy (`boy`). Each boy wears both materials (one on each foot), so each boy serves as a block. This is appropriate because individual boys may have different activity levels, walking habits, or body weights that affect wear, and blocking eliminates this source of variability.
+
+### Data Preparation
+
+The dataset `shoedat_obs` stores the two measurements side by side. We reshape it into long format for modeling.
+
+```{r part3b_data}
+data("shoedat_obs", package = "scidesignR")
+
+# Reshape to long format
+shoe_long <- shoedat_obs %>%
+  pivot_longer(
+    cols = c(wearA, wearB),
+    names_to = "material",
+    values_to = "wear",
+    names_prefix = "wear"
+  )
+shoe_long$boy <- factor(shoe_long$boy)
+shoe_long$material <- factor(shoe_long$material)
+
+knitr::kable(
+  shoe_long %>%
+    group_by(material) %>%
+    summarize(
+      n = n(),
+      Mean = round(mean(wear), 4),
+      SD = round(sd(wear), 4)
+    ),
+  caption = "Summary Statistics of Wear by Material"
+)
+```
+
+### Why Blocking is Appropriate
+
+Each boy acts as his own control: he wears material A on one foot and material B on the other. Boys differ in weight, stride, and activity level, all of which affect shoe wear. By blocking on boy, we remove this between-subject variability from the error term, making the comparison of materials A vs B more precise. Think of it like comparing two paint colors on the same wall rather than on different walls — the wall-to-wall differences (lighting, texture) are eliminated.
+
+### Fitting the RBD Model
+
+```{r part3b_rbd, comment = NA, strip.white = TRUE}
+mod_rbd <- lm(wear ~ material + boy, data = shoe_long)
+anova(mod_rbd)
+```
+
+**Interpretation:** The ANOVA table tests the treatment effect (material) after accounting for block effects (boy). A significant p-value for `material` indicates that the two shoe materials produce different amounts of wear when boy-to-boy variability is controlled. The block effect (boy) is expected to be significant, confirming that blocking was effective.
+
+### Comparison with Unblocked Analysis
+
+```{r part3b_unblocked, comment = NA, strip.white = TRUE}
+mod_unblocked <- lm(wear ~ material, data = shoe_long)
+anova(mod_unblocked)
+```
+
+**Blocked vs Unblocked:** In the unblocked analysis, all variability between boys is pooled into the residual error term, inflating the MSE and making it harder to detect a real treatment effect. The blocked model separates block variability from error, yielding a smaller residual MSE and therefore a more powerful F-test. This illustrates the key benefit of blocking: if the blocking factor explains substantial variability, blocking increases the precision of treatment comparisons. In simple terms, blocking is like noise-canceling headphones — it removes the background noise (boy differences) so you can hear the signal (material difference) more clearly.
+
+\newpage
+
+## 3C — Latin Square Design
+
+### Study Design
+
+* **Research Question:** Is there a significant difference in mean serum calcium levels across the treatments, after controlling for both dog and week effects?
+* **Experimental Units:** A dog-week combination (i.e., one dog during one specific week).
+* **Response Variable:** Serum calcium level in mg-per cent (`value`).
+* **Row Blocking Factor:** Dog (`Dogs`) — different dogs may have different baseline calcium levels.
+* **Column Blocking Factor:** Week (`Weeks`) — calcium levels may drift over time.
+* **Treatment Factor:** Treatment (`Treat`) — the intervention applied.
+
+The Latin Square design simultaneously blocks on two nuisance factors (dogs and weeks) using each treatment exactly once in each row and each column. This is like seating guests at a dinner table so that every guest sits next to every other guest exactly once — each blocking factor is perfectly balanced with treatments.
+
+### Exploratory Data Analysis
+
+```{r part3c_eda, fig.width=5, fig.height=3.5, fig.align='center'}
+data("BR_LatSq", package = "scidesignR")
+
+BR_LatSq$Dogs <- factor(BR_LatSq$Dogs)
+BR_LatSq$Weeks <- factor(BR_LatSq$Weeks)
+BR_LatSq$Treat <- factor(BR_LatSq$Treat)
+
+ls_summary <- BR_LatSq %>%
+  group_by(Treat) %>%
+  summarize(
+    n = n(),
+    Mean = round(mean(value, na.rm = TRUE), 4),
+    SD = round(sd(value, na.rm = TRUE), 4)
+  )
+knitr::kable(ls_summary, caption = "Summary Statistics of Serum Calcium by Treatment")
+
+ggplot(BR_LatSq, aes(x = Treat, y = value, fill = Treat)) +
+  geom_boxplot(alpha = 0.7) +
+  theme_minimal() +
+  labs(title = "Serum Calcium by Treatment (Latin Square)",
+       x = "Treatment",
+       y = "Serum Calcium (mg%)") +
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5))
+```
+
+### Latin Square Model
+
+```{r part3c_model, comment = NA, strip.white = TRUE}
+mod_ls <- lm(value ~ Dogs + Weeks + Treat, data = BR_LatSq)
+anova(mod_ls)
+```
+
+**Interpretation:** The ANOVA table tests the treatment effect after adjusting for both row (Dogs) and column (Weeks) blocking factors. A significant p-value for `Treat` indicates that at least one treatment produces a different mean serum calcium level than the others, after accounting for dog-to-dog and week-to-week variability. Significant effects for `Dogs` or `Weeks` confirm that blocking on those factors was effective in reducing unexplained variation.
 
 
 
