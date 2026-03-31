@@ -1,0 +1,172 @@
+---
+title: "STA305H5S: Project"
+author: "Your Name(s)"
+date: "Winter 2026"
+output: 
+  pdf_document:
+     number_sections: true
+spacing: double
+header-includes:
+- \usepackage{fancyhdr}
+- \pagestyle{fancy}
+- \fancyhead[L]{STA305H5-Experimental Design}
+- \fancyfoot[CO,CE]{}
+- \fancyfoot[LE,RO]{\thepage}
+- \usepackage{setspace}\doublespacing
+---
+
+
+```{=tex}
+\newpage 
+\tableofcontents 
+\newpage
+```
+
+
+
+
+# Part 1
+This project aims to introduce hidden Markov models and how to make prediction about future states. Section 2 will provide an overview of basic concepts in hidden Markov models, including different matrices, the fundamental questions, and the algorithms. Furthermore, in section 3, we will introduce the dataset and discuss the  method. In Section 4,  we will analyze the  data. Section 5 includes concludion and closing remark. 
+
+
+
+
+# Part 2
+
+## Tasks
+
+
+# Part 3
+
+
+## 3A
+
+### Tasks
+
+## 3B
+
+### Tasks
+
+## 3C
+
+### Tasks
+
+
+The data from the R package \textit{coronavirus} has been reconstructed to have the first column representing recordings 
+over time from January to June 2020, and the next three columns representing the total number of confirmed cases, deaths 
+and recoveries in Canada. B
+
+
+```{r cars}
+summary(cars)
+```
+ 
+ 
+Based on this data, it is possible to estimate the number of individuals infected daily by,
+ 
+```{r, echo=FALSE}
+plot(pressure)
+```
+
+A simple linear regression is given by
+$$
+y=\beta_0 + \beta_1 x + \varepsilon
+$$
+
+
+# Part 4
+
+## Task 1
+
+The   model  
+
+\begin{equation} 
+\label{eq1}
+\frac{dS}{dt} = -\beta S(t)I(t) 
+\end{equation}
+
+The cumulative hazard function H(x), defined by $H(x) = \int_0^x h(u) {\rm d}u$. Thus, for continuous lifetimes, 
+\begin{equation}
+\label{eq2}
+S(x) = \exp[-H(x)] = \exp[-\int_0^x h(u) {\rm d}u]
+\end{equation}
+
+\begin{equation}
+E[dN_i^*(t)|{Z_i}(t)] = \exp \{ \gamma _0^T{Z_i}(t)\} d{\Lambda _0}(t)
+\end{equation}
+
+\begin{align}
+\label{eq4}
+y = {x^2} + \mathop {\lim }\limits_{n \to \infty } \sum\limits_{i = 1}^n {x_i^2} 
+\end{align}
+
+
+
+
+
+ 
+
+ 
+
+
+
+Markdown is a simple formatting syntax for authoring HTML, PDF, and 
+MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+
+
+Here is the table
+
+\begin{table}[htb]
+\small
+\caption{\scriptsize{very small captions}}
+\begin{center}
+\begin{tabular}{|c|c|c|c|c|c|c|c|c|c|c|}
+\hline
+$x$    & 1 & 2   & 3 & 4 & 5    & 6 & 7 & 8    & 9 \\
+\hline
+$\beta_1$    & 10   & 15  & 25   & 32  &  45 &   51 & 64  & 76  & 98   \\
+\hline
+\end{tabular}
+\end{center}
+\label{tab1}
+\end{table}
+
+Table \ref{tab1} reports
+
+Recall that
+\begin{align}
+\label{eq1}
+(x+y)^n &=\sum\limits_{k=0}^n \binom{n}{k} x^k y^{n-k}  \\
+        &= x^n + n x y^{n-1} +...+nx^{n-1} y+ y^n \nonumber
+\end{align}
+Equation \eqref{eq1} is called the binomial (Newton) equation. 
+
+
+The results are
+\begin{itemize}
+
+\item A
+
+\item B
+
+\item C
+
+\end{itemize}
+
+
+
+
+
+
+in Equation \eqref{eq4}, we see that 
+
+ 
+
+ 
+ 
+\textbf{References}
+
+
+
+

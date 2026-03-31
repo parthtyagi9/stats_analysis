@@ -1,0 +1,337 @@
+---
+title: 'STA305H5S: Project'
+author: "Jack Chamoun Barbar, Asim Ali, Parth"
+date: "April 5, 2026"
+output:
+  pdf_document:
+    number_sections: true
+  word_document: default
+spacing: double
+header-includes:
+- \usepackage{fancyhdr}
+- \pagestyle{fancy}
+- "\\fancyhead[L]{STA305H5-Experimental Design}"
+- \fancyfoot[CO,CE]{}
+- \fancyfoot[LE,RO]{\thepage}
+- \usepackage{setspace}\doublespacing
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+
+# The libraries needed for our project
+library(scidesignR)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(car)
+library(coin)
+```
+
+\newpage 
+\tableofcontents 
+\newpage
+
+# Part 1: Comparing Two Treatments
+
+## Study Design Definitions
+
+* **Research Question:** Is there a statistically significant difference in the mean wheat yield between Treatment A and Treatment B? In other words, we are testing: $H_0:\mu_A=\mu_B$ vs $H_1:\mu_A \neq \mu_B$, where
+$\mu_A$ and $\mu_B$ refer to the mean wheat yields of treatments A and B, respectively.
+* **Experimental Units:** The wheat plots, which are randomly assigned to receive the treatments.
+* **Response Variable:** Wheat yield. It is represented as `fert` in the `fertdat`
+dataset. Note that wheat yield is a quantitative continuous response variable
+(as the data are collected by measuring and expressed on a continuous scale).
+* **Treatment Factor:** Level/type of fertilizer, which is expressed as `trt` the
+`fertdat` dataset, with two levels (A and B).
+
+## Exploratory Data Analysis (EDA)
+Exploratory Data Analysis (EDA) is the initial phase of data science that uses descriptive statistics and visual techniques  to uncover patterns, identify anomalies, and understand the underlying structure of a dataset. It is essential because it prevents flawed modeling by informing data cleaning processes, testing necessary statistical assumptions, and guiding the selection of appropriate statistical tests.
+
+\large
+```{r eda, fig.width=4, fig.height=3.5, fig.align='center'}
+# Load the dataset
+data("fertdat", package = "scidesignR")
+
+
+summary_stats <- fertdat %>%
+  group_by(trt) %>%
+  summarize(
+    n = n(),
+    Mean = round(mean(fert, na.rm = TRUE), 4),
+    SD = round(sd(fert, na.rm = TRUE), 4),
+    Min = min(fert, na.rm = TRUE),
+    Max = max(fert, na.rm = TRUE)
+  )
+knitr::kable(summary_stats, caption = "Summary Statistics of Wheat Yield by Fertilizer")
+
+# A boxplot
+ggplot(fertdat, aes(x = trt, y = fert, fill = trt)) +
+  geom_boxplot(alpha = 0.7) +
+  theme_minimal() +
+  labs(title = "Wheat Yield Distribution by Fertilizer Type",
+       x = "Type of Fertilizer",
+       y = "Wheat Yield") +
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5))
+```
+\normalsize
+
+## Checking Assumptions
+
+To proceed with a standard two-sample t-test, we must check for **normality** of the residuals
+and **homoscedasticity** of variance, i.e., constant variance.
+
+
+```{r model_setup, include=FALSE}
+mod <- lm(fert ~ trt, data = fertdat)
+```
+
+```{r qq_plot, fig.width=4.5, fig.height=3.8, fig.align='center', out.width='65%'}
+qqnorm(resid(mod), main = "Q-Q Plot of Residuals"); qqline(resid(mod), col = "red")
+```
+\normalsize
+
+\newpage
+
+```{r residual_plot, fig.width=4.5, fig.height=4, fig.align='center'}
+plot(fitted(mod), resid(mod),
+     main = "Residuals vs Fitted",
+     xlab = "Fitted Values",
+     ylab = "Residuals")
+abline(h = 0, col = "red", lty = 2)
+```
+Since plots can be subjective, it is better to supplement with more formal/robust tests. Now, we use the Shapiro and Levene's tests, which assess for normality and equality of population variances
+(i.e, $\sigma^2_A = \sigma^2_B$), respectively. We chose Levene's test as it is very robust against
+non-normality, unlike Bartlett's test.
+
+\vspace{-2em}
+```{r Formal tests, comment = NA, strip.white = TRUE}
+# Normality check
+shapiro.test(resid(mod))
+
+# Levene's test for equal variances
+leveneTest(fert ~ trt, data = fertdat)
+```
+
+**Assumption Check Conclusion:** The assumption of normality is met, as the Q-Q plot points closely follow the theoretical line and the Shapiro-Wilk test yields a non-significant p-value of 0.8418. However, the assumption of homoscedasticity is violated because the Residuals vs Fitted plot displays an unequal spread and Levene’s test results in a significant p-value of 0.04837. Thus, we should proceed with a Welch's two-sample t-test instead of a standard two-sample t-test to account for the unequal variances ($\sigma^2_A \neq \sigma^2_B$).
+
+## Hypothesis Testing
+
+Let $\mu_A$ and $\mu_B$ be the true mean wheat yields for treatments A and B, respectively.
+
+* **Null Hypothesis ($H_0$):** $\mu_A = \mu_B$
+* **Alternative Hypothesis ($H_1$):** $\mu_A \neq \mu_B$
+
+\vspace{-2.5em}
+```{r Testing, comment = NA, strip.white = TRUE}
+# Welch's two-sample t-test
+welch_test <- t.test(fert ~ trt, data = fertdat, var.equal = FALSE)
+welch_test
+```
+
+## Results and Interpretation
+
+Based on the R output for Welch's two-sample t-test:
+
+* **Test Statistic:** $t = `r round(welch_test$statistic, 4)`$
+* **Degrees of Freedom:** $df = `r round(welch_test$parameter, 4)`$
+* **P-value:** $`r format.pval(welch_test$p.value)`$
+* **95% Confidence Interval:** $[`r round(welch_test$conf.int[1], 4)`, `r round(welch_test$conf.int[2], 4)`]$
+
+**Conclusion:** With a large p-value of 0.6168, we fail to reject the null hypothesis, as there is insufficient evidence to conclude a significant difference in true mean wheat yields between fertilizers A and B. Furthermore, we are 95% confident that the true difference in mean yields ($\mu_A - \mu_B$) lies between -5.86 and 9.26, an interval that includes zero and is consistent with the lack of a statistically significant difference.
+
+
+# Part 2: Power & Sample Size
+
+## Practical Effect Size and Required Sample Size
+We use the built-in `power.t.test()` function in R to compute the Effect Size
+and the sample size required to achieve 80% power.
+
+\vspace{-3em}
+```{r effect-size, comment = NA, strip.white = TRUE}
+delta_est <- 22.1833 - 20.4833
+
+sd_pooled <- sigma(mod)
+
+alpha_level <- 0.05; target_power <- 0.80
+
+exact_calc <- power.t.test(delta = delta_est,
+                           sd = sd_pooled,
+                           sig.level = alpha_level,
+                           power = target_power,
+                           type = "two.sample",
+                           alternative = "two.sided")
+
+exact_calc
+```
+
+Based on the linear model from Part 1, the estimated (unstandardized) effect size ($\Delta = |\bar{x}_A - \bar{x}_B|$) is `r round(delta_est, 4)`, and the pooled standard deviation is $s_{pooled}\approx$ `r round(sd_pooled, 4)`.
+Thus, our standardized effect size (Cohen's $d$) is $d = \frac{|\bar{x}_A - \bar{x}_B|}{s_{pooled}} = \frac{1.7}{5.6508} \approx 0.3008$. The required sample size to achieve 80% power at a significance level of $\alpha = 0.05$ is **175** (after rounding up to the next integer) **per group**.
+
+## Simulated Power
+This code calculates statistical power by simulating two data groups 10,000 times, running a t-test on each iteration, and finding the proportion of p-values that fall below the significance threshold $\alpha=0.05$.
+
+```{r Simulated Power}
+set.seed(123)  # So that whoever runs this gets same exact number
+m <- 10000
+p_values <- numeric(m) # To store the p-values in this (will use after the loop)
+
+for(i in 1:m) {
+  sim_A <- rnorm(175, mean = 0, sd = sd_pooled)
+  sim_B <- rnorm(175, mean = delta_est, sd = sd_pooled)
+  test_result <- t.test(sim_A, sim_B, var.equal = FALSE)
+  p_values[i] <- test_result$p.value
+}
+
+simulated_power <- mean(p_values < alpha_level) # Proportion of times we reject
+cat("Simulated Power:", simulated_power, "\n")
+```
+
+## Discussion on Changing Parameters
+
+* **If the effect size is smaller:** The required sample size **increases**. A smaller true difference is harder to detect against random noise, so more data is needed to correctly reject the null hypothesis.
+* **If the variability is larger:** The required sample size **increases**. A higher standard deviation creates more overlap between the two groups, requiring more observations to clearly isolate the treatment effect.
+
+# Part 3
+
+
+## 3A
+
+### Tasks
+
+## 3B
+
+### Tasks
+
+## 3C
+
+### Tasks
+
+
+
+# Part 4: Factorial Design at Two Levels
+## Model Setup & Estimation
+* **Factors:**
+    * **Factor A:** Level of food diary
+    * **Factor B:** Level of increasing activity
+    * **Factor C:** Level of home visit
+
+* **Levels:** Each factor has exactly two levels: a low level (-1) and a high level (1).
+
+* **Response Variable ($y$):** Weight loss in kilograms (kg). Note that a higher positive value indicates greater weight loss, which is the desired outcome.
+
+* This is a full \(2^3\) factorial design with three factors, \(A\), \(B\), and \(C\), each at two levels, giving \(2^3 = 8\) treatment combinations. The experimental unit is one study subject/experimental run under a particular combination of factor levels, and the response is weight loss in kilograms. No blocking variable is provided in `wtlossdat`, so the data are analyzed as an unblocked completely randomized factorial design. Since there is only one observation for each treatment combination, this is an unreplicated factorial experiment.
+
+\vspace{-1.5em}
+```{r part4_data}
+data("wtlossdat", package = "scidesignR")
+
+full_model <- lm(y ~ A * B * C, data = wtlossdat)
+
+# Calculate effects (2 * coefficient)
+effects <- 2 * coef(full_model)[-1]
+
+knitr::kable(
+  as.data.frame(effects),
+  col.names = c("Effect Estimate"),
+  caption = "Main Effects and Interactions Estimates"
+)
+```
+
+In a two-level factorial design with factor levels coded as -1 and 1, the effect size is exactly twice the corresponding regression coefficient from a linear model.
+**Interpretation:**
+
+* **Factor B (Increasing activity):** Has a surprisingly strong negative main effect (-1.975), meaning that increasing the activity level actually reduced the amount of weight lost in this specific dataset.
+
+* **Factor C (Home visit):** Has a positive main effect (0.575), meaning higher levels of home visits increase weight loss.
+
+* **Interaction A:C**: There is a notable positive interaction between food diary and home visits.
+
+
+Because this is a single unreplicated $2^3$ design, fitting a full model with the three-way interaction ($A \times B \times C$) leaves zero degrees of freedom for the residuals (error term), making it impossible to calculate p-values.
+
+To resolve this, we will pool the highest-order interaction (the three-way interaction `A:B:C`) into the error term. This gives us 1 degree of freedom for the residuals, allowing us to evaluate the main effects and two-way interactions.
+
+```{r ANOVA part}
+# model without the 3-way interaction to allow 1 DF for error
+mod_reduced <- aov(y ~ (A + B + C)^2, data = wtlossdat)
+summary(mod_reduced)
+```
+
+**Interpretation:** Based on the ANOVA table, Factor B (Increasing activity) is marginally significant (p = 0.0563), falling just short of the standard 0.05 threshold. Factor C (Home visit) and the A:C interaction also show notable effect estimates but are not statistically significant (p = 0.1738). It is important to note that with only 1 degree of freedom for error, the statistical power of this test is severely limited, making it difficult to detect true effects at standard significance levels.
+
+## Visualization and Recommendation
+
+```{r Main effect, fig.height = 3.3, fig.width=5.5, fig.align='center'}
+data("wtlossdat", package = "scidesignR")
+
+wtlossdat_long <- wtlossdat %>%
+  pivot_longer(
+    cols = c(A, B, C),
+    names_to = "Factor",
+    values_to = "Level"
+  ) %>%
+  mutate(
+    Factor = factor(
+      Factor,
+      levels = c("A", "B", "C"),
+      labels = c("A: Food Diary", "B: Increasing Activity", "C: Home Visit")
+    ),
+    Level = factor(Level,
+                   levels = c(-1, 1),
+                   labels = c("Low (-1)", "High (1)"))
+  ) %>%
+  group_by(Factor, Level) %>%
+  summarize(Mean_y = mean(y), .groups = "drop")
+
+ggplot(wtlossdat_long, aes(x = Level, y = Mean_y, group = 1)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 3) +
+  facet_wrap(~Factor) +
+  theme_bw() +
+  labs(
+    title = "Main Effects Plot",
+    x = "Factor Level",
+    y = "Mean Weight Loss"
+  )
+
+ac_plot_data <- wtlossdat %>%
+  group_by(A, C) %>%
+  summarize(Mean_y = mean(y), .groups = "drop") %>%
+  mutate(
+    A = factor(A, levels = c(-1, 1), labels = c("Low (-1)", "High (1)")),
+    C = factor(C, levels = c(-1, 1), labels = c("Low (-1)", "High (1)"))
+  )
+
+```
+**Main effects:** The main effects plot shows that B (Increasing Activity) has the strongest effect, and its high level reduces the response. In contrast, A (Food Diary) and C (Home Visit) both improve weight loss when set at their high levels.
+
+```{r Interactions, fig.height = 3, fig.width=5, fig.align='center'}
+ggplot(ac_plot_data, aes(x = A, y = Mean_y, group = C, linetype = C, shape = C)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 3) +
+  theme_bw() +
+  labs(
+    title = "Interaction Plot for A and C",
+    x = "A: Food Diary",
+    y = "Mean Weight Loss",
+    linetype = "C: Home Visit",
+    shape = "C: Home Visit"
+  )
+```
+
+**Interaction:** The interaction plot suggests that **A and C** interact, since the lines are not parallel. This means the effect of the food diary depends on whether home visits are also used, with the best results occurring when both are at their high levels.
+
+**Recommendation:** To improve the outcome, the recommended settings are **A = high, B = low, and C = high**. These settings give the largest observed weight loss in the data, with ($y = 2.6$).
+
+
+\textbf{References}
+
+
+\newpage
+\appendix
+
+# Appendix: R Code
+
+```{r appendix_code, ref.label = setdiff(knitr::all_labels(), "appendix_code"), echo = TRUE, eval = FALSE}
+```
