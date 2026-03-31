@@ -1,6 +1,6 @@
 ---
 title: 'STA305H5S: Project'
-author: "Jack Chamoun Barbar, Asim Ali, Parth"
+author: "Jack Chamoun Barbar, Mir Asim Ali, Parth Tyagi"
 date: "April 5, 2026"
 output:
   pdf_document:
